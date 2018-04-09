@@ -3,12 +3,20 @@
 # Define here the models for your scraped items
 #
 # See documentation in:
-# https://doc.scrapy.org/en/latest/topics/items.html
+# http://doc.scrapy.org/en/latest/topics/items.html
 
 import scrapy
 
 
-class Lagou_Item(scrapy.Item):
+class JobItem(scrapy.Item):
     # define the fields for your item here like:
-    # name = scrapy.Field()
-    pass
+    _id = scrapy.Field()
+    title = scrapy.Field()
+    city = scrapy.Field()
+    salary = scrapy.Field()
+    company = scrapy.Field()
+    tags = scrapy.Field()
+    education = scrapy.Field()
+    experience = scrapy.Field()
+    site = scrapy.Field()
+    desc = scrapy.Field()
