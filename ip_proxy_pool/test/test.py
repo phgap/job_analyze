@@ -2,7 +2,7 @@
 import requests
 import json
 
-r = requests.get('http://127.0.0.1:8000/?types=0&count=5&country=中国')
+r = requests.get('http://127.0.0.1:8000')
 ip_ports = json.loads(r.text)
 print(ip_ports)
 ip = ip_ports[0][0]
@@ -13,4 +13,5 @@ proxies = {
 }
 r = requests.get('http://www.baidu.com', proxies=proxies)
 r.encoding = 'utf-8'
+print(r.status_code)
 print(r.text)

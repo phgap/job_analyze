@@ -9,12 +9,20 @@ from scrapy import signals
 import requests
 import json
 import random
+import re
+from jobs.selenium.selenium_downloader import SeleniumDownloader
+from scrapy.http import Request
+from scrapy.http import HtmlResponse
 
 
 class JobsSpiderMiddleware(object):
     # Not all methods need to be defined. If a method is not defined,
     # scrapy acts as if the spider middleware does not modify the
     # passed objects.
+    def __init__(self):
+        self.next_page_selector = {
+            "lagou": '.pager_container a:last-of-type'
+        }
 
     @classmethod
     def from_crawler(cls, crawler):
@@ -36,7 +44,17 @@ class JobsSpiderMiddleware(object):
 
         # Must return an iterable of Request, dict or Item objects.
         for i in result:
+            if isinstance(i, Request):
+                i = self.process_request(i)
             yield i
+
+    def process_request(self, request):
+        print("=======================spider middleware process_request: url:", request.url)
+        if re.match(r'https://www.lagou.com/zhaopin/[^/]*/\d+/', request.url) is not None:
+            request.meta['next_page_selector'] = self.next_page_selector["lagou"]
+        else:
+            request.meta['next_page_selector'] = None
+        return request
 
     def process_spider_exception(self, response, exception, spider):
         # Called when a spider or process_spider_input() method
@@ -59,28 +77,35 @@ class JobsSpiderMiddleware(object):
         spider.logger.info('Spider opened: %s' % spider.name)
 
 
-class JobsDownloaderMiddleware(object):
-    # Not all methods need to be defined. If a method is not defined,
-    # scrapy acts as if the downloader middleware does not modify the
-    # passed objects.
-    @classmethod
-    def from_crawler(cls, crawler):
-        # This method is used by Scrapy to create your spiders.
-        s = cls()
-        crawler.signals.connect(s.spider_opened, signal=signals.spider_opened)
-        return s
+class LagouDownloaderMiddleware(object):
+    def __init__(self):
+        self.selenimu = SeleniumDownloader()
+
+    def __del__(self):
+        self.selenimu.close()
 
     def process_request(self, request, spider):
-        # Called for each request that goes through the downloader
-        # middleware.
-
         # Must either:
         # - return None: continue processing this request
         # - or return a Response object
         # - or return a Request object
         # - or raise IgnoreRequest: process_exception() methods of
         #   installed downloader middleware will be called
-        return None
+
+        if self.is_next_page(request):
+            body = self.selenimu.next_page_by_click(request.meta['next_page_selector'])
+            return HtmlResponse(request.url,
+                                body=body,
+                                encoding='utf-8',
+                                request=request)
+        elif self.is_lagou_index(request.url):
+            body = self.selenimu.load(request.url)
+            return HtmlResponse(request.url,
+                                body=body,
+                                encoding='utf-8',
+                                request=request)
+        else:
+            return None
 
     def process_response(self, request, response, spider):
         # Called with the response returned from the downloader.
@@ -89,7 +114,6 @@ class JobsDownloaderMiddleware(object):
         # - return a Response object
         # - return a Request object
         # - or raise IgnoreRequest
-        # print("====================================response status:", response.status)
         return response
 
     def process_exception(self, request, exception, spider):
@@ -102,43 +126,10 @@ class JobsDownloaderMiddleware(object):
         # - return a Request object: stops process_exception() chain
         pass
 
-    def spider_opened(self, spider):
-        spider.logger.info('Spider opened: %s' % spider.name)
+    def is_lagou_index(self, url):
+        # https://www.lagou.com/zhaopin/Java/?labelWords=label
+        result = re.match(r"https://www.lagou.com/zhaopin/[^/]*/\??\D*", url)
+        return result is not None
 
-
-class JobsProxyMiddleware(object):
-    def __init__(self):
-        self.count = 0
-
-    def process_request(self, request, spider):
-        # Called for each request that goes through the downloader
-        # middleware.
-
-        # Must either:
-        # - return None: continue processing this request
-        # - or return a Response object
-        # - or return a Request object
-        # - or raise IgnoreRequest: process_exception() methods of
-        #   installed downloader middleware will be called
-        request.meta["proxy"] = self.get_proxy()
-        # print("=============================proxy is:", request.meta["proxy"])
-        return None
-
-    def get_proxy(self):
-        r = requests.get('http://127.0.0.1:8000/')
-        ip_ports = json.loads(r.text)
-        # ip_port = random.choice(ip_ports)
-        try:
-            ip_port = ip_ports[self.count]
-            if ip_port[2] < 8:
-                self.count = 0
-                ip_port = ip_ports[self.count]
-        except IndexError as e:
-            print('except:', e)
-            self.count = 0
-            ip_port = ip_ports[self.count]
-
-        ip = ip_port[0]
-        port = ip_port[1]
-        self.count += 1
-        return 'http://%s:%s' % (ip, port)
+    def is_next_page(self, request):
+        return request.meta.get('next_page_selector') is not None
