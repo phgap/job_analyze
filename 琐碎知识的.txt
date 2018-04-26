@@ -1,0 +1,5 @@
+# 下面是mongodb分组
+# db = Mongodb('127.0.0.1', 27017, 'job_info', 'jobs')
+# coll = db.get_collection()
+# for doc in coll.aggregate([{"$group": {"_id": {"city": "$city"}, "number": {"$sum": 1}}}]):
+#     print(doc)

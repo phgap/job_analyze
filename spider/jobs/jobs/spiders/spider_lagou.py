@@ -1,5 +1,8 @@
 import scrapy
 from jobs.items import JobItem
+import re
+import urllib
+
 
 
 class LagouSpider(scrapy.Spider):
@@ -62,6 +65,7 @@ class LagouSpider(scrapy.Spider):
             item["experience"] = self.get_experience(job)
             print('===================experience:', self.get_experience(job))
             item["desc"] = self.get_desc(job)
+            item["tech"] = self.get_tech(response.url)
             yield item
 
         # follow links
@@ -110,3 +114,10 @@ class LagouSpider(scrapy.Spider):
     def get_desc(self, job):
         # TODO:
         return None
+
+    def get_tech(self, url):
+        # https://www.lagou.com/zhaopin/Python/
+        m = re.match(r'https://www.lagou.com/zhaopin/([^/]*)/\D*/?', url)
+        tech = m.group(1)
+        tech = urllib.parse.unquote(tech)
+        return tech
